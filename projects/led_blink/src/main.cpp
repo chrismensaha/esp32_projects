@@ -1,8 +1,7 @@
 #include <Arduino.h>
 static constexpr uint8_t internal_led = 2;
 static constexpr uint8_t external_led = 4;
-unsigned long internal_previous_time=0;
-unsigned long external_previous_time=0;
+
 
 QueueHandle_t led_queue;
 
