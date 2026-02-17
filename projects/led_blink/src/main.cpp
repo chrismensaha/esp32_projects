@@ -6,7 +6,7 @@ static constexpr uint8_t external_led = 4;
 QueueHandle_t led_queue;
 
 void toggleInternalLed(void* parameter){
-  unsigned short int counter=0;
+  uint8_t counter=0;
   bool state=false;
   while(1){
     state=!state;
@@ -16,7 +16,7 @@ void toggleInternalLed(void* parameter){
       counter++;
     }
     if (counter>=5){
-      int msg=1; 
+       int msg=1; 
       xQueueSend(led_queue,&msg,portMAX_DELAY); 
       counter=0;
     }
@@ -27,10 +27,9 @@ void toggleInternalLed(void* parameter){
 
 
 void toggleExternalLed(void* parameter){
-  unsigned short int counter=0;
   int received_msg=0;
   bool state=false;
-  while(1){   
+  while(1){
     if (xQueueReceive(led_queue,&received_msg,portMAX_DELAY)==pdPASS){
       for (int i=0;i<6;i++){
         state=!state;
