@@ -6,12 +6,6 @@ unsigned long external_previous_time=0;
 bool internal_state=0;
 bool external_state=0;
 
-void setup(){
-  pinMode(internal_led,OUTPUT);
-  pinMode(external_led,OUTPUT); 
-  xTaskCreatePinnedToCore();
-  
-}
 
 void toggleInternalLed(void* parameter){
   while(1){
@@ -21,14 +15,24 @@ void toggleInternalLed(void* parameter){
   }
 }
 
-void loop() {
-  unsigned long current_time=millis();
-  if (current_time-external_previous_time>=1000){
+void toggleExternalLed(void* parameter){
+  while(1){
     external_state=!external_state;
     digitalWrite(external_led,external_state);
-    external_previous_time+=1000;
+    vTaskDelay(500/portTICK_PERIOD_MS);
   }
+}
+
+void setup(){
+  pinMode(internal_led,OUTPUT);
+  pinMode(external_led,OUTPUT); 
+  xTaskCreatePinnedToCore(toggleInternalLed, "Internal LED Task",1024,NULL,1,NULL,0);
+  xTaskCreatePinnedToCore(toggleExternalLed, "EXternal LED Task",1024,NULL,1,NULL,1);
+}
+
+void loop() {
 
 }
+
 
 
