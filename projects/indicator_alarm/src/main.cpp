@@ -39,7 +39,8 @@ void setup(){
   pinMode(INTERNAL_LED,OUTPUT);
   pinMode(EXTERNAL_LED,OUTPUT);
   xTaskCreatePinnedToCore(aliveIndicator,"Is_Alive",1024,NULL,1,NULL,0);
-  xTaskCreatePinnedToCore(alarmON, "Alarm_On",1024,NULL,1,NULL,1);
+  xTaskCreatePinnedToCore(alarmON,"Alarm_On",1024,NULL,1,NULL,1);
+  attachInterrupt(BUTTON_PIN,pushed,FALLING);
 }
 
 void loop(){}
