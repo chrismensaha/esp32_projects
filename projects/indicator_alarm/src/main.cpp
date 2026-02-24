@@ -1,7 +1,7 @@
 #include <Arduino.h>
 static constexpr uint8_t INTERNAL_LED = 2;
-static constexpr uint8_t EXTERNAL_LED = 4;
-static constexpr uint8_t BUTTON_PIN=0;
+static constexpr uint8_t EXTERNAL_LED = 21;
+static constexpr uint8_t BUTTON_PIN=23;
 
 QueueHandle_t LED_QUEUE;
 
@@ -21,7 +21,7 @@ void aliveIndicator(void* parameter){
   }
 
 void alarmON(void* parameter){
-  int received_msg=0;
+  uint8_t received_msg=0;
   bool state=false;
   while(1){
     if (xQueueReceive(LED_QUEUE,&received_msg,portMAX_DELAY)==pdPASS){
@@ -38,6 +38,7 @@ void setup(){
   LED_QUEUE=xQueueCreate(10,sizeof(uint8_t));
   pinMode(INTERNAL_LED,OUTPUT);
   pinMode(EXTERNAL_LED,OUTPUT);
+  pinMode(BUTTON_PIN,INPUT_PULLUP);
   xTaskCreatePinnedToCore(aliveIndicator,"Is_Alive",1024,NULL,1,NULL,0);
   xTaskCreatePinnedToCore(alarmON,"Alarm_On",1024,NULL,1,NULL,1);
   attachInterrupt(BUTTON_PIN,pushed,FALLING);
