@@ -4,11 +4,11 @@
 #define SERIAL_BAUD          115200
 #define SERIAL_INIT_TIMEOUT  3000
 #define REPORT_INTERVAL      5000  
-#define TASK_STACK_SIZE      2048
+#define TASK_STACK_SIZE      3072
 #define TASK_PRIORITY        1
 #define TARGET_CORE          0
 
-void identityTask(void *parameter){
+void identityTask(void *pvParameters){
     uint8_t mac[6];
     for (;;){
         if (esp_read_mac(mac,ESP_MAC_WIFI_STA)==ESP_OK){
@@ -28,4 +28,7 @@ void setup() {
     vTaskDelete(NULL);
 }
 
-void loop(){}
+void loop(){} 
+
+// Board1: 44:1D:64:F4:55:A8 Stack: 368 bytes
+// Board2:  MAC: 44:1D:64:F4:FB:EC Stack: 416 bytes
