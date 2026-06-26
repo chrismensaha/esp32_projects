@@ -6,19 +6,18 @@ enum{btn_UP,btn_DOWN,btn_ATK};
 TaskHandle_t indicatorTask=NULL;
 QueueHandle_t msgQUEUE=NULL;
 QueueHandle_t btnQUEUE=NULL;
-SemaphoreHandle_t serialMutex=NULL;
+SemaphoreHandle_t serialMUTEX=NULL;
 
 
-void vIndicatorLight(void *pvParameter){
+static void vIndicatorLight(void *pvParameter){
     uint8_t pin=(uint32_t)pvParameter;
-    pinMode(pin,OUTPUT);
     for(;;){
         digitalWrite(pin, !digitalRead(pin));
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
-void vSendMessage(void* pvParameter){
+static void vSendMessage(void* pvParameter){
     char* msg=(char*)pvParameter;
     for(;;){
         if (xQueueSend(msgQUEUE,&msg,pdMS_TO_TICKS(1000))==pdPASS){};
@@ -26,19 +25,20 @@ void vSendMessage(void* pvParameter){
     }
 };
 
-void vReceiveMessage(void* pvParameter){
+static void vReceiveMessage(void* pvParameter){
     char* rec_msg=NULL;
     for(;;){
         if (xQueueReceive(msgQUEUE,&rec_msg,portMAX_DELAY)==pdPASS){
-            xSemaphoreTake(serialMutex,portMAX_DELAY);
-            Serial.println(rec_msg);
-            xSemaphoreGive(serialMutex);
+            if(xSemaphoreTake(serialMUTEX,portMAX_DELAY)==pdPASS){
+                Serial.println(rec_msg);
+                xSemaphoreGive(serialMUTEX);
+            }
         }   
-        vTaskDelay(pdMS_TO_TICKS(100));
+        
     }
 }
 
-void vButtonPressed(void* pvParameter){
+static void vButtonPressed(void* pvParameter){
     uint8_t button=(uint32_t)pvParameter;
     for(;;){
         if (xQueueSend(btnQUEUE,&button,pdMS_TO_TICKS(100))==pdPASS){};
@@ -46,22 +46,22 @@ void vButtonPressed(void* pvParameter){
     }   
 }
 
-void vButtonReleased(void* pvParameter){
+static void vButtonReleased(void* pvParameter){
     uint8_t receive_BTN=0;
     for (;;){
     if (xQueueReceive(btnQUEUE,&receive_BTN,portMAX_DELAY)==pdPASS){
-        xSemaphoreTake(serialMutex,portMAX_DELAY);
-        Serial.println("Button Pressed!");
-        xSemaphoreGive(serialMutex);
-    }
-    vTaskDelay(pdMS_TO_TICKS(100));
+        if(xSemaphoreTake(serialMUTEX,portMAX_DELAY)==pdPASS){
+            Serial.println("Button Pressed!");
+            xSemaphoreGive(serialMUTEX);
+            }
+        } 
     }
 }
 
 void setup(){ 
-    if (serialMutex==NULL) serialMutex=xSemaphoreCreateMutex();
-    
+    pinMode(pin2,OUTPUT);
     Serial.begin(115200);
+    if (serialMUTEX==NULL) serialMUTEX=xSemaphoreCreateMutex();   
     if (msgQUEUE==NULL) msgQUEUE=xQueueCreate(10,sizeof(char*));
     if (btnQUEUE==NULL) btnQUEUE=xQueueCreate(10,sizeof(uint8_t));
     if(indicatorTask==NULL) xTaskCreate(vIndicatorLight,"IndicatorTask",1024,(void*)pin2,1,&indicatorTask);
