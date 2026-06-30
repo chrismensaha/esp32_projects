@@ -1,5 +1,6 @@
 #include <Arduino.h>
-#define pin2 2
+#define PIN2 2
+#define btnPIN 17
 
 enum{btn_UP,btn_DOWN,btn_ATK};
 
@@ -17,6 +18,7 @@ static void vIndicatorLight(void *pvParameter){
     }
 }
 
+ 
 static void vSendMessage(void* pvParameter){
     char* msg=(char*)pvParameter;
     for(;;){
@@ -38,37 +40,35 @@ static void vReceiveMessage(void* pvParameter){
     }
 }
 
-static void vButtonPressed(void* pvParameter){
-    uint8_t button=(uint32_t)pvParameter;
-    for(;;){
-        if (xQueueSend(btnQUEUE,&button,pdMS_TO_TICKS(100))==pdPASS){};
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }   
-}
-
-static void vButtonReleased(void* pvParameter){
-    uint8_t receive_BTN=0;
-    for (;;){
-    if (xQueueReceive(btnQUEUE,&receive_BTN,portMAX_DELAY)==pdPASS){
-        if(xSemaphoreTake(serialMUTEX,portMAX_DELAY)==pdPASS){
-            Serial.println("Button Pressed!");
-            xSemaphoreGive(serialMUTEX);
-            }
-        } 
+static void vButtonISR(void){
+    BaseType_t pxHigherPriorityTaskWoken=pdFALSE;
+    uint8_t button=btn_UP;
+    xQueueSendFromISR(btnQUEUE,&button,&pxHigherPriorityTaskWoken);
+    if (pxHigherPriorityTaskWoken){
+        portYIELD_FROM_ISR();
     }
 }
 
+static void vButtonReleasedISR(void){
+    BaseType_t pxHigherPriorityTaskWoken=pdFALSE;
+    uint8_t receive_BTN=0;   
+    xQueueReceiveFromISR(btnQUEUE,&receive_BTN,&pxHigherPriorityTaskWoken);
+    xSemaphoreTakeFromISR(serialMUTEX,&pxHigherPriorityTaskWoken);
+    Serial.println("Button Pressed!");
+    xSemaphoreGiveFromISR(serialMUTEX,&pxHigherPriorityTaskWoken);        
+}
+
 void setup(){ 
-    pinMode(pin2,OUTPUT);
+    pinMode(PIN2,OUTPUT);
     Serial.begin(115200);
     if (serialMUTEX==NULL) serialMUTEX=xSemaphoreCreateMutex();   
     if (msgQUEUE==NULL) msgQUEUE=xQueueCreate(10,sizeof(char*));
     if (btnQUEUE==NULL) btnQUEUE=xQueueCreate(10,sizeof(uint8_t));
-    if(indicatorTask==NULL) xTaskCreate(vIndicatorLight,"IndicatorTask",1024,(void*)pin2,1,&indicatorTask);
+    if(indicatorTask==NULL) xTaskCreate(vIndicatorLight,"IndicatorTask",1024,(void*)PIN2,1,&indicatorTask);
     xTaskCreate(vSendMessage,"SendTask",1024,(void*)"Hello",1,NULL);
     xTaskCreate(vReceiveMessage,"ReceiveTask",2048,NULL,1,NULL);
-    xTaskCreate(vButtonPressed,"ButtonPressed",1024,(void*)btn_UP,1,NULL);
-    xTaskCreate(vButtonReleased,"ButtonReleased",2048,NULL,1,NULL);
+    attachInterrupt(digitalPinToInterrupt(btnPIN),vButtonISR,FALLING);
+    attachInterrupt(digitalPinToInterrupt(btnPIN),vButtonReleasedISR,RISING);
 
 }
 
