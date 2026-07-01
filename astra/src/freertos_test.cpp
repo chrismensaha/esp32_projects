@@ -4,10 +4,10 @@
 
 enum{btn_UP,btn_DOWN,btn_ATK};
 
-TaskHandle_t indicatorTask=NULL;
-QueueHandle_t msgQUEUE=NULL;
-QueueHandle_t btnQUEUE=NULL;
-SemaphoreHandle_t serialMUTEX=NULL;
+static TaskHandle_t indicatorTask=NULL;
+static QueueHandle_t msgQUEUE=NULL;
+static QueueHandle_t btnQUEUE=NULL;
+static SemaphoreHandle_t serialMUTEX=NULL;
 
 
 static void vIndicatorLight(void *pvParameter){
@@ -35,31 +35,42 @@ static void vReceiveMessage(void* pvParameter){
                 Serial.println(rec_msg);
                 xSemaphoreGive(serialMUTEX);
             }
-        }   
-        
+        }    
     }
 }
 
 static void vButtonISR(void){
     BaseType_t pxHigherPriorityTaskWoken=pdFALSE;
-    uint8_t button=btn_UP;
-    xQueueSendFromISR(btnQUEUE,&button,&pxHigherPriorityTaskWoken);
+    uint8_t pinState=digitalRead(btnPIN);
+    uint8_t buttonEvent=(pinState==LOW) ? 1 : 0;
+    xQueueSendFromISR(btnQUEUE,&buttonEvent,&pxHigherPriorityTaskWoken);
     if (pxHigherPriorityTaskWoken){
         portYIELD_FROM_ISR();
     }
 }
 
-static void vButtonReleasedISR(void){
-    BaseType_t pxHigherPriorityTaskWoken=pdFALSE;
-    uint8_t receive_BTN=0;   
-    xQueueReceiveFromISR(btnQUEUE,&receive_BTN,&pxHigherPriorityTaskWoken);
-    xSemaphoreTakeFromISR(serialMUTEX,&pxHigherPriorityTaskWoken);
-    Serial.println("Button Pressed!");
-    xSemaphoreGiveFromISR(serialMUTEX,&pxHigherPriorityTaskWoken);        
-}
+static void vButtonReleased(void* pvParameter){
+    uint8_t serialCheck=0;   
+    for (;;){
+        if (xQueueReceive(btnQUEUE,&serialCheck,portMAX_DELAY)==pdPASS){
+            if (xSemaphoreTake(serialMUTEX,pdMS_TO_TICKS(10))==pdPASS){
+                if (serialCheck==1){
+                    Serial.println("Button Pressed!");
+                }
+                else {
+                    Serial.println("Button Released");
+                    }
+                xSemaphoreGive(serialMUTEX);
+                }
+            }
+            else{
+            }
+        }
+    }
 
 void setup(){ 
     pinMode(PIN2,OUTPUT);
+    pinMode(btnPIN,INPUT_PULLUP);
     Serial.begin(115200);
     if (serialMUTEX==NULL) serialMUTEX=xSemaphoreCreateMutex();   
     if (msgQUEUE==NULL) msgQUEUE=xQueueCreate(10,sizeof(char*));
@@ -67,9 +78,8 @@ void setup(){
     if(indicatorTask==NULL) xTaskCreate(vIndicatorLight,"IndicatorTask",1024,(void*)PIN2,1,&indicatorTask);
     xTaskCreate(vSendMessage,"SendTask",1024,(void*)"Hello",1,NULL);
     xTaskCreate(vReceiveMessage,"ReceiveTask",2048,NULL,1,NULL);
-    attachInterrupt(digitalPinToInterrupt(btnPIN),vButtonISR,FALLING);
-    attachInterrupt(digitalPinToInterrupt(btnPIN),vButtonReleasedISR,RISING);
-
+    xTaskCreate(vButtonReleased,"Button Released",2048,NULL,1,NULL);
+    attachInterrupt(digitalPinToInterrupt(btnPIN),vButtonISR,CHANGE);
 }
 
 void loop(){};
